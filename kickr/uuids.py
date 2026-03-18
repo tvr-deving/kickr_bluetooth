@@ -8,7 +8,7 @@ kickr_buttons                   = normalize_wahoo_uuid(0xe03c)
 kickr_chosen_gear               = normalize_wahoo_uuid(0xe03a)
 kickr_groupset                  = normalize_wahoo_uuid(0xe039)
 
-kickr_cycling_power_extension   = normalize_wahoo_uuid(0xe005)
+kickr_cycling_power_extension   = normalize_wahoo_uuid(0xe03b)
 
 kickr_tilt_svc                  = normalize_wahoo_uuid(0xee0b)
 kickr_tilt_characteristic       = normalize_wahoo_uuid(0xe037)

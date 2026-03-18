@@ -48,16 +48,21 @@ def button_handler(characteristic: BleakGATTCharacteristic, data: bytearray):
     print()
 
 def decode_buttons(data):
-
+    # Packet type: Full state (14 bytes)
     if(len(data)==14 and data[0]==0xFF and data[1]==0x0F):
-        result='state  '
+        result = 'state  '
 
         for button in Button_index:
-            click_count = data[button.value]
-            result = result + f'{button.name}={click_count}  '
+            raw_val = data[button.value]
+            # 0x80 (128) is the 'Down' flag. 
+            # We check if it's present to return 1, otherwise 0.
+            is_currently_pressed = 1 if (raw_val & 0x80) else 0
+            
+            result = result + f'{button.name}={is_currently_pressed}  '
 
         return result
 
+    # Packet type: Specific Event (3 bytes)
     elif(len(data)==3):
         bitfield = unsigned_16(data[0], data[1])
         button_down = data[2] & 0x80 == 0x80
