@@ -1,0 +1,17 @@
+# KICKR Bike Mapping Configuration
+# -------------------------------
+
+# Push-to-Talk (PTT) Configuration
+ptt:
+  # The button on your KICKR Bike to monitor.
+  # Options: Steer_Left, Steer_Right, Brake_Left, Shift_Back_Left, etc.
+  kickr_button: "Top_Front_Left_Decline"
+
+  # The keyboard key to hold down.
+  # Use "v", "t", "space", "f10", or "ctrl_l".
+  keyboard_key: "v"
+
+# Future features can be added here, e.g.:
+# shifting:
+#   up: "page_up"
+#   down: "page_down"

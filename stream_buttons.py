@@ -1,66 +1,75 @@
 import asyncio
+import yaml
+import os
 from bleak import BleakClient
 from pynput.keyboard import Key, Controller
 import kickr.scanner
 import kickr.uuids
 import kickr.buttons as buttons
 
-# --- CONFIGURATION ---
-# Choose your KICKR button from buttons.Button_bits (e.g., Steer_Left, Shift_Back_Right)
-TARGET_KICKR_BUTTON = buttons.Button_bits.Top_Front_Right 
+CONFIG_FILE = "config.yaml"
 
-# Choose your Keyboard Key (e.g., 'v', Key.f10, Key.ctrl_l)
-TARGET_KEY = 'v' 
-# ---------------------
+def load_config():
+    # Default structure with the new nested keys
+    default = {
+        "ptt": {
+            "kickr_button": "Top_Front_Left_Decline",
+            "keyboard_key": "v"
+        }
+    }
+    if not os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, "w") as f:
+            yaml.dump(default, f, default_flow_style=False)
+    
+    with open(CONFIG_FILE, "r") as f:
+        return yaml.safe_load(f)
 
+# Load and Map Config
+config = load_config()
 keyboard = Controller()
 
-def unsigned_16(low, high):
-    return (high << 8) | low
+try:
+    # Access nested ptt settings
+    ptt_cfg = config.get('ptt', {})
+    btn_str = ptt_cfg.get('kickr_button', 'Steer_Left')
+    key_str = ptt_cfg.get('keyboard_key', 'v').lower()
+
+    TARGET_KICKR_BUTTON = getattr(buttons.Button_bits, btn_str)
+    TARGET_KEY = getattr(Key, key_str) if hasattr(Key, key_str) else key_str
+except Exception as e:
+    print(f"Config Error: {e}. Check your spelling in config.yaml")
+    exit(1)
 
 def ptt_handler(characteristic, data: bytearray):
-    """Custom handler to detect holds and trigger keystrokes"""
-    # We only care about the 3-byte 'event' packets for precise timing
     if len(data) == 3:
-        bitfield = unsigned_16(data[0], data[1])
+        # Standard Wahoo 3-byte event: [bit_low, bit_high, state]
+        bitfield = (data[1] << 8) | data[0]
         is_down = (data[2] & 0x80) == 0x80
         
-        # Check if the button pressed matches our target
         if bitfield == TARGET_KICKR_BUTTON.value:
             if is_down:
-                print(f"PTT ACTIVE: Holding [{TARGET_KEY}]")
+                print(f"PTT ON: [{TARGET_KEY}]")
                 keyboard.press(TARGET_KEY)
             else:
-                print(f"PTT INACTIVE: Releasing [{TARGET_KEY}]")
+                print(f"PTT OFF: [{TARGET_KEY}]")
                 keyboard.release(TARGET_KEY)
 
 async def main():
     kickr.uuids.register_uuids()
-
     print("Searching for KICKR...")
     device = await kickr.scanner.find_kickr()
-    if not device:
-        print("KICKR not found.")
-        return
+    if not device: return
 
-    print(f"Connecting to {device.name}...")
     async with BleakClient(device) as client:
-        # We manually use our ptt_handler instead of the one in buttons.py
-        # Ensure kickr_buttons UUID was fixed in your uuids.py earlier!
+        # Ensure uuids.py: kickr_buttons = normalize_wahoo_uuid(0xe03a)
         await client.start_notify(kickr.uuids.kickr_buttons, ptt_handler)
-        
-        print(f"SUCCESS: {TARGET_KICKR_BUTTON.name} is now mapped to '{TARGET_KEY}'")
-        print("Press Ctrl+C to stop and disconnect.")
+        print(f"Running: {btn_str} -> {key_str}")
 
         try:
             while client.is_connected:
                 await asyncio.sleep(0.1)
-        except asyncio.CancelledError:
-            pass
         finally:
-            # Safety: Always release the key on exit so it doesn't get 'stuck' down
-            keyboard.release(TARGET_KEY)
-            print("\nKey released. Disconnecting...")
+            keyboard.release(TARGET_KEY) # Safety release
 
 if __name__ == "__main__":
     try:
